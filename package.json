@@ -1,0 +1,11 @@
+{
+  "name": "game",
+  "version": "1.0.0",
+  "description": "MMO-RGP Game",
+  "scripts": {
+    "start:dev": "pnpm run --parallel start:dev"
+  },
+  "keywords": [],
+  "author": "Burak Tarım",
+  "license": "ISC"
+}
