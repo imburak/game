@@ -1,35 +1,58 @@
 import "./style.css";
-import * as THREE from "three";
-import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import Scene from "./scene";
+import EntityManager from "./entityManager";
+import Entity from "./entity";
 import io from "socket.io-client";
 
 const socket = io("ws://localhost:4001");
 
-socket.on("connect", () => console.log("connected"));
+const scene = new Scene();
 
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
-);
+const entityManager = new EntityManager();
 
-const renderer = new THREE.WebGLRenderer();
+socket.on("destroy", (id) => {
+  const entity = entityManager.getEntity(id);
 
-renderer.setSize(window.innerWidth, window.innerHeight);
-document.body.appendChild(renderer.domElement);
+  if (entity) entity.remove();
+});
 
-const geometry = new THREE.BoxGeometry(1, 1, 1);
-const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-const cube = new THREE.Mesh(geometry, material);
-scene.add(cube);
+socket.on("movement", (data) => {
+  const entity = entityManager.getEntity(data.id);
 
-camera.position.z = 5;
-const controls = new OrbitControls(camera, renderer.domElement);
+  if (!entity) {
+    const entity = new Entity();
 
-function animate() {
-  requestAnimationFrame(animate);
-  renderer.render(scene, camera);
-}
-animate();
+    entityManager.addEntity(data.id, entity);
+
+    entity.init();
+
+    scene.add(entity.object);
+  } else {
+    entity.update(data.body);
+  }
+});
+
+const inputs = { right: false, left: false, forward: false };
+
+const proxy = new Proxy(inputs, {
+  set(obj, prop, value) {
+    socket.emit("input", { ...obj, [prop]: value });
+    return Reflect.set(obj, prop, value);
+  },
+  get: function (target, prop, receiver) {
+    return Reflect.get(target, prop, receiver);
+  },
+});
+
+document.addEventListener("keydown", (e) => {
+  if (["w", "ArrowUp"].includes(e.key) && !proxy.forward) proxy.forward = true;
+  else if (["a", "ArrowRight"].includes(e.key) && !proxy.right)
+    proxy.right = true;
+  else if (["d", "ArrowLeft"].includes(e.key) && !proxy.left) proxy.left = true;
+});
+
+document.addEventListener("keyup", (e) => {
+  if (["w", "ArrowUp"].includes(e.key)) proxy.forward = false;
+  else if (["a", "ArrowRight"].includes(e.key)) proxy.right = false;
+  else if (["d", "ArrowLeft"].includes(e.key)) proxy.left = false;
+});
